@@ -24,28 +24,44 @@ public class JWTAuthorizationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        response.addHeader("Access-Control-Allow-Headers",
+                "Origin, Accept, X-Requested-With, Content-Type, "
+                        + "Access-Control-Request-Method, "
+                        + "Access-Control-Request-Headers, "
+                        + "Authorization");
+        response.addHeader("Access-Control-Expose-Headers",
+                "Access-Control-Allow-Origin, "
+                        + "Access-Control-Allow-Credentials, "
+                        + "Authorization");
+
         String jwtToken = request.getHeader(SecurityConstants.HEADER_STRING);
-        System.out.println("JWT TOKEN : "+jwtToken);
+        System.out.println("JWT TOKEN : " + jwtToken);
 
-        if(jwtToken == null || !jwtToken.startsWith(SecurityConstants.TOKEN_PREFIX)) {
-            filterChain.doFilter(request, response);
-            return;
+        if (request.getMethod().equals("OPTIONS")) { // Pre-request sent before any request
+            response.setStatus(HttpServletResponse.SC_OK);
         }
+        else {
+            if (jwtToken == null || !jwtToken.startsWith(SecurityConstants.TOKEN_PREFIX)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-        Claims claims = Jwts.parser()
-                .setSigningKey(SecurityConstants.SECRET) // sign with the secret
-                .parseClaimsJws(jwtToken.replace(SecurityConstants.TOKEN_PREFIX, "")) // remove the prefix and parse
-                .getBody();
+            Claims claims = Jwts.parser()
+                    .setSigningKey(SecurityConstants.SECRET) // sign with the secret
+                    .parseClaimsJws(jwtToken.replace(SecurityConstants.TOKEN_PREFIX, "")) // remove the prefix and parse
+                    .getBody();
 
-        String username = claims.getSubject();
-        ArrayList<Map<String, String>> roles = (ArrayList<Map<String, String>>) claims.get("roles");
-        Collection<GrantedAuthority> authorities = new ArrayList<>();
-        roles.forEach(r -> {
-            authorities.add(new SimpleGrantedAuthority(r.get("authority")));
-        });
-        UsernamePasswordAuthenticationToken authenticatedUser =
-                new UsernamePasswordAuthenticationToken(username, null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(authenticatedUser);
-        filterChain.doFilter(request, response);
+            String username = claims.getSubject();
+            ArrayList<Map<String, String>> roles = (ArrayList<Map<String, String>>) claims.get("roles");
+            Collection<GrantedAuthority> authorities = new ArrayList<>();
+            roles.forEach(r -> {
+                authorities.add(new SimpleGrantedAuthority(r.get("authority")));
+            });
+            UsernamePasswordAuthenticationToken authenticatedUser =
+                    new UsernamePasswordAuthenticationToken(username, null, authorities);
+            SecurityContextHolder.getContext().setAuthentication(authenticatedUser);
+            filterChain.doFilter(request, response);
+        }
     }
 }
